@@ -1,0 +1,1 @@
+SELECT distinct Category FROM MATERIAL;
