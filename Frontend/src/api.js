@@ -1,22 +1,4 @@
-import axios from "axios";
+import client, { authHeader } from "./api/client";
 
-const api = axios.create({
-  baseURL: "http://127.0.0.1:8000",
-  headers: {
-    "Content-Type": "application/json",
-  },
-});
-
-export const authHeader = () => {
-  const token = localStorage.getItem("token");
-
-  if (!token) return {};
-
-  return {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  };
-};
-
-export default api;
+export { authHeader };
+export default client;
