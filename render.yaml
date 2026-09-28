@@ -14,7 +14,7 @@ services:
         preview: https://sap-backend.onrender.com
         required: true
 
-  - type: static_site
+  - type: web
     name: sap-frontend
     env: static
     region: oregon
