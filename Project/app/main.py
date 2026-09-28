@@ -12,6 +12,10 @@ from app.routers.purchase_requisitions import (
     router as purchase_requisition_router,
 )
 
+from app.database import engine, Base
+
+Base.metadata.create_all(bind=engine)
+
 app = FastAPI(
     title="SAP Procurement System",
     version="1.0.0",
@@ -19,9 +23,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173"
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
