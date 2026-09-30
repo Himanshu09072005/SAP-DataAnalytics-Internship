@@ -50,16 +50,4 @@ Purchase Requisition
 
 
 
-### One correction before you commit
 
-I deliberately used:
-
-> **"ERP-oriented procurement application inspired by enterprise procurement workflows"**
-
-rather than calling it an **SAP system** without qualification. Your code is a custom FastAPI/React procurement application; it is not the SAP software itself. That distinction makes the repository more technically credible.
-
-### Do these three changes now
-
-1. **Repository description**
-   ```text
-   Full-stack procurement management and analytics system built with FastAPI, React, SQLAlchemy, and Power BI.
