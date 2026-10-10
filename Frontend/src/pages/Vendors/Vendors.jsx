@@ -5,9 +5,12 @@ import StatusBadge from "../../components/Common/StatusBadge";
 import Modal from "../../components/Common/Modal";
 import ConfirmDialog from "../../components/Common/ConfirmDialog";
 import { useToast } from "../../context/ToastContext";
+import { useAuth } from "../../context/AuthContext";
 
 export default function Vendors() {
   const { showToast } = useToast();
+  const { requireAuth } = useAuth();
+
 
   const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -74,27 +77,42 @@ export default function Vendors() {
   }, [vendors]);
 
   const handleOpenCreate = () => {
-    setFormData(initialFormState);
-    setFormModal({ open: true, isEdit: false, data: null });
+    requireAuth(() => {
+      setFormData(initialFormState);
+      setFormModal({ open: true, isEdit: false, data: null });
+    }, "add a new vendor");
   };
 
   const handleOpenEdit = (vendor) => {
-    setFormData({
-      VendorName: vendor.VendorName || "",
-      ContactPerson: vendor.ContactPerson || "",
-      Phone: vendor.Phone || "",
-      Email: vendor.Email || "",
-      GSTNumber: vendor.GSTNumber || "",
-      Address: vendor.Address || "",
-      City: vendor.City || "",
-      State: vendor.State || "",
-      Country: vendor.Country || "India",
-      PostalCode: vendor.PostalCode || "",
-      PaymentTerms: vendor.PaymentTerms || "Net 30",
-      Status: vendor.Status || "Active",
-    });
-    setFormModal({ open: true, isEdit: true, data: vendor });
+    requireAuth(() => {
+      setFormData({
+        VendorName: vendor.VendorName || "",
+        ContactPerson: vendor.ContactPerson || "",
+        Phone: vendor.Phone || "",
+        Email: vendor.Email || "",
+        GSTNumber: vendor.GSTNumber || "",
+        Address: vendor.Address || "",
+        City: vendor.City || "",
+        State: vendor.State || "",
+        Country: vendor.Country || "India",
+        PostalCode: vendor.PostalCode || "",
+        PaymentTerms: vendor.PaymentTerms || "Net 30",
+        Status: vendor.Status || "Active",
+      });
+      setFormModal({ open: true, isEdit: true, data: vendor });
+    }, `edit vendor "${vendor.VendorName}"`);
   };
+
+  const handleOpenDelete = (vendor) => {
+    requireAuth(() => {
+      setDeleteDialog({
+        open: true,
+        id: vendor.VendorID,
+        name: `${vendor.VendorCode} - ${vendor.VendorName}`,
+      });
+    }, `delete vendor "${vendor.VendorName}"`);
+  };
+
 
   const handleFormSubmit = async (e) => {
     e.preventDefault();
@@ -268,17 +286,12 @@ export default function Vendors() {
             </button>
             <button
               className="btn btn-outline-danger btn-action"
-              onClick={() =>
-                setDeleteDialog({
-                  open: true,
-                  id: row.VendorID,
-                  name: `${row.VendorCode} - ${row.VendorName}`,
-                })
-              }
+              onClick={() => handleOpenDelete(row)}
               title="Delete Vendor"
             >
               <i className="bi bi-trash"></i>
             </button>
+
           </div>
         )}
       />

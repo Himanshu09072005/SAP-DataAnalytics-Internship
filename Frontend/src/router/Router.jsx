@@ -40,16 +40,15 @@ export const RouterProvider = ({ children }) => {
     };
   }, []);
 
-  // Auth guard effect
+  // Only redirect away from /login if already authenticated
   useEffect(() => {
     if (loadingAuth) return;
 
-    if (!isAuthenticated && currentPath !== "/login") {
-      navigate("/login");
-    } else if (isAuthenticated && currentPath === "/login") {
+    if (isAuthenticated && currentPath === "/login") {
       navigate("/dashboard");
     }
   }, [isAuthenticated, loadingAuth, currentPath, navigate]);
+
 
   return (
     <RouterContext.Provider value={{ currentPath, navigate }}>

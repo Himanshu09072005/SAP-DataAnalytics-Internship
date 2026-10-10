@@ -3,7 +3,8 @@ import { useAuth } from "../../context/AuthContext";
 import { useAppNavigation } from "../../router/Router";
 
 export default function Navbar({ onToggleMobileSidebar }) {
-  const { user, logout } = useAuth();
+  const { user, logout, openLoginModal } = useAuth();
+
   const { currentPath, navigate } = useAppNavigation();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
@@ -110,75 +111,92 @@ export default function Navbar({ onToggleMobileSidebar }) {
           )}
         </div>
 
-        {/* User Profile Pill & Dropdown */}
-        <div className="position-relative">
-          <div
-            className="erp-user-badge"
-            onClick={() => setDropdownOpen(!dropdownOpen)}
-            role="button"
-          >
-            <div className="erp-avatar">
-              {user?.FullName ? user.FullName.charAt(0).toUpperCase() : "U"}
-            </div>
-            <div className="erp-user-info d-none d-sm-flex">
-              <span className="erp-user-name">{user?.FullName || user?.Username || "User"}</span>
-              <span className="erp-user-role">{user?.Role || "Procurement User"}</span>
-            </div>
-            <i className="bi bi-chevron-down text-muted small ms-1"></i>
-          </div>
-
-          {dropdownOpen && (
+        {/* User Profile Pill or Guest Login Button */}
+        {user ? (
+          <div className="position-relative">
             <div
-              className="position-absolute end-0 mt-2 bg-white rounded-3 shadow-lg border py-2"
-              style={{ width: "220px", zIndex: 1050 }}
-              onMouseLeave={() => setDropdownOpen(false)}
+              className="erp-user-badge"
+              onClick={() => setDropdownOpen(!dropdownOpen)}
+              role="button"
             >
-              <div className="px-3 py-2 border-bottom">
-                <div className="fw-bold small text-dark">{user?.FullName || "ERP User"}</div>
-                <div className="text-muted" style={{ fontSize: "0.75rem" }}>
-                  {user?.Email || "erp@system.local"}
-                </div>
-                <span className="badge bg-info-subtle text-info mt-1" style={{ fontSize: "0.7rem" }}>
-                  {user?.Role || "Employee"}
-                </span>
+              <div className="erp-avatar">
+                {user?.FullName ? user.FullName.charAt(0).toUpperCase() : "U"}
               </div>
-
-              <button
-                className="dropdown-item px-3 py-2 d-flex align-items-center gap-2 text-secondary small"
-                onClick={() => {
-                  setDropdownOpen(false);
-                  navigate("/profile");
-                }}
-              >
-                <i className="bi bi-person"></i> View Profile
-              </button>
-
-              <button
-                className="dropdown-item px-3 py-2 d-flex align-items-center gap-2 text-secondary small"
-                onClick={() => {
-                  setDropdownOpen(false);
-                  navigate("/settings");
-                }}
-              >
-                <i className="bi bi-gear"></i> System Settings
-              </button>
-
-              <div className="dropdown-divider my-1"></div>
-
-              <button
-                className="dropdown-item px-3 py-2 d-flex align-items-center gap-2 text-danger small"
-                onClick={() => {
-                  setDropdownOpen(false);
-                  logout();
-                }}
-              >
-                <i className="bi bi-box-arrow-right"></i> Sign Out
-              </button>
+              <div className="erp-user-info d-none d-sm-flex">
+                <span className="erp-user-name">{user?.FullName || user?.Username || "User"}</span>
+                <span className="erp-user-role">{user?.Role || "Procurement User"}</span>
+              </div>
+              <i className="bi bi-chevron-down text-muted small ms-1"></i>
             </div>
-          )}
-        </div>
+
+            {dropdownOpen && (
+              <div
+                className="position-absolute end-0 mt-2 bg-white rounded-3 shadow-lg border py-2"
+                style={{ width: "220px", zIndex: 1050 }}
+                onMouseLeave={() => setDropdownOpen(false)}
+              >
+                <div className="px-3 py-2 border-bottom">
+                  <div className="fw-bold small text-dark">{user?.FullName || "ERP User"}</div>
+                  <div className="text-muted" style={{ fontSize: "0.75rem" }}>
+                    {user?.Email || "erp@system.local"}
+                  </div>
+                  <span className="badge bg-info-subtle text-info mt-1" style={{ fontSize: "0.7rem" }}>
+                    {user?.Role || "Employee"}
+                  </span>
+                </div>
+
+                <button
+                  className="dropdown-item px-3 py-2 d-flex align-items-center gap-2 text-secondary small"
+                  onClick={() => {
+                    setDropdownOpen(false);
+                    navigate("/profile");
+                  }}
+                >
+                  <i className="bi bi-person"></i> View Profile
+                </button>
+
+                <button
+                  className="dropdown-item px-3 py-2 d-flex align-items-center gap-2 text-secondary small"
+                  onClick={() => {
+                    setDropdownOpen(false);
+                    navigate("/settings");
+                  }}
+                >
+                  <i className="bi bi-gear"></i> System Settings
+                </button>
+
+                <div className="dropdown-divider my-1"></div>
+
+                <button
+                  className="dropdown-item px-3 py-2 d-flex align-items-center gap-2 text-danger small"
+                  onClick={() => {
+                    setDropdownOpen(false);
+                    logout();
+                  }}
+                >
+                  <i className="bi bi-box-arrow-right"></i> Sign Out
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="d-flex align-items-center gap-2">
+            <span className="badge bg-light text-secondary border d-none d-md-inline-flex align-items-center gap-1 py-2 px-2" style={{ fontSize: "0.75rem" }}>
+              <i className="bi bi-eye text-primary"></i> Public View
+            </span>
+            <button
+              className="btn btn-erp-primary btn-sm d-flex align-items-center gap-1 py-1 px-3 shadow-sm fw-semibold"
+              onClick={() => openLoginModal(null, "access administrative features")}
+              title="Sign In with administrator credentials (himanshu)"
+            >
+              <i className="bi bi-shield-lock-fill"></i>
+              <span>Admin Login</span>
+            </button>
+          </div>
+        )}
       </div>
     </header>
   );
 }
+
 

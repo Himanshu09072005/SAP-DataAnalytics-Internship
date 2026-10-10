@@ -8,9 +8,12 @@ import StatusBadge from "../../components/Common/StatusBadge";
 import Modal from "../../components/Common/Modal";
 import ConfirmDialog from "../../components/Common/ConfirmDialog";
 import { useToast } from "../../context/ToastContext";
+import { useAuth } from "../../context/AuthContext";
 
 export default function Invoices() {
   const { showToast } = useToast();
+  const { requireAuth } = useAuth();
+
 
   const [invoices, setInvoices] = useState([]);
   const [goodsReceipts, setGoodsReceipts] = useState([]);
@@ -84,11 +87,13 @@ export default function Invoices() {
   ];
 
   const handleOpenCreate = () => {
-    if (availableCompletedGRs.length === 0) {
-      showToast("No uninvoiced Completed Goods Receipts found. Receive goods first.", "warning");
-    }
-    setFormData(initialFormState);
-    setFormModal({ open: true, isEdit: false, data: null });
+    requireAuth(() => {
+      if (availableCompletedGRs.length === 0) {
+        showToast("No uninvoiced Completed Goods Receipts found. Receive goods first.", "warning");
+      }
+      setFormData(initialFormState);
+      setFormModal({ open: true, isEdit: false, data: null });
+    }, "create a vendor invoice");
   };
 
   // Auto-calculate GST when base invoice amount changes
@@ -103,15 +108,28 @@ export default function Invoices() {
   };
 
   const handleOpenEdit = (inv) => {
-    setFormData({
-      GRID: inv.GRID,
-      InvoiceAmount: inv.InvoiceAmount,
-      GSTAmount: inv.GSTAmount,
-      PaymentStatus: inv.PaymentStatus || "Pending",
-      Remarks: inv.Remarks || "",
-    });
-    setFormModal({ open: true, isEdit: true, data: inv });
+    requireAuth(() => {
+      setFormData({
+        GRID: inv.GRID,
+        InvoiceAmount: inv.InvoiceAmount,
+        GSTAmount: inv.GSTAmount,
+        PaymentStatus: inv.PaymentStatus || "Pending",
+        Remarks: inv.Remarks || "",
+      });
+      setFormModal({ open: true, isEdit: true, data: inv });
+    }, `edit invoice "${inv.InvoiceNumber}"`);
   };
+
+  const handleOpenDelete = (inv) => {
+    requireAuth(() => {
+      setDeleteDialog({
+        open: true,
+        id: inv.InvoiceID,
+        invNumber: inv.InvoiceNumber,
+      });
+    }, `delete invoice "${inv.InvoiceNumber}"`);
+  };
+
 
   const calculatedTotal = useMemo(() => {
     const base = parseFloat(formData.InvoiceAmount) || 0;
@@ -298,17 +316,12 @@ export default function Invoices() {
             </button>
             <button
               className="btn btn-outline-danger btn-action"
-              onClick={() =>
-                setDeleteDialog({
-                  open: true,
-                  id: row.InvoiceID,
-                  invNumber: row.InvoiceNumber,
-                })
-              }
+              onClick={() => handleOpenDelete(row)}
               title="Delete Invoice"
             >
               <i className="bi bi-trash"></i>
             </button>
+
           </div>
         )}
       />

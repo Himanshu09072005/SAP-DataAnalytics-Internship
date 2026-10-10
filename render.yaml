@@ -1,4 +1,7 @@
 services:
+  # ─────────────────────────────────────────────────────────────────
+  # Backend: FastAPI + SQLite (no external database required)
+  # ─────────────────────────────────────────────────────────────────
   - type: web
     name: sap-backend
     env: python
@@ -6,12 +9,38 @@ services:
     plan: free
     buildCommand: cd Project && pip install -r requirements.txt
     startCommand: cd Project && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      # SECRET_KEY: set a strong random value in Render Dashboard → Environment
+      # If not set, a demo fallback is used (not suitable for production).
+      - key: SECRET_KEY
+        generateValue: true   # Render generates a random value on first deploy
+      - key: ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "1440"
+      # SQLite path — /tmp is writable on Render free web services
+      # NOTE: /tmp is ephemeral; data resets on restart/redeploy.
+      # This is acceptable for an internship/demo deployment.
+      - key: SQLITE_PATH
+        value: /tmp/sap_erp.db
+      # CORS: allow the deployed frontend
+      - key: ALLOWED_ORIGINS
+        value: "https://sap-frontend-x0a1.onrender.com,http://localhost:5173"
 
+  # ─────────────────────────────────────────────────────────────────
+  # Frontend: React/Vite static site
+  # ─────────────────────────────────────────────────────────────────
   - type: web
     name: sap-frontend
     env: static
     buildCommand: cd Frontend && npm install && npm run build
     staticPublishPath: Frontend/dist
     envVars:
+      # Must point to the ACTUAL backend service URL on Render.
+      # Old (incorrect): https://sap-backend.onrender.com
+      # Correct:         https://sap-backend-tmjn.onrender.com
       - key: VITE_API_BASE_URL
-        value: https://sap-backend.onrender.com
+        value: https://sap-backend-tmjn.onrender.com
+
+# sap-db (Render PostgreSQL) has been intentionally removed.
+# The application now uses SQLite — no paid database plan required.

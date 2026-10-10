@@ -9,7 +9,7 @@ import LoadingSpinner from "../../components/Common/LoadingSpinner";
 import { useToast } from "../../context/ToastContext";
 
 export default function Profile() {
-  const { user, refreshProfile } = useAuth();
+  const { user, refreshProfile, requireAuth, openLoginModal } = useAuth();
   const { showToast } = useToast();
 
   const [loading, setLoading] = useState(true);
@@ -41,7 +41,9 @@ export default function Profile() {
     try {
       const data = await dashboardApi.getUsers();
       setUserStats(data || {});
-      await refreshProfile();
+      if (localStorage.getItem("token")) {
+        await refreshProfile();
+      }
     } catch (err) {
       showToast("Could not retrieve user directory metrics.", "warning");
     } finally {
@@ -96,7 +98,7 @@ export default function Profile() {
         </div>
         <button
           className="btn btn-erp-primary"
-          onClick={() => setRegisterModalOpen(true)}
+          onClick={() => requireAuth(() => setRegisterModalOpen(true), "onboard new staff")}
         >
           <i className="bi bi-person-plus"></i>
           <span>Onboard New Staff</span>
@@ -104,65 +106,99 @@ export default function Profile() {
       </div>
 
       <div className="row g-4 mb-4">
-        {/* Current Logged-in User Profile Card */}
+        {/* Current Logged-in User Profile Card OR Guest Card */}
         <div className="col-12 col-lg-5">
           <div className="erp-card h-100 mb-0">
             <div className="erp-card-header">
               <h5 className="erp-card-title">
                 <i className="bi bi-person-badge text-primary"></i>
-                My Identity Profile
+                {user ? "My Identity Profile" : "Public Explorer Mode"}
               </h5>
-              <StatusBadge status={user?.Status || "Active"} />
+              <StatusBadge status={user ? (user?.Status || "Active") : "Public"} />
             </div>
             <div className="erp-card-body">
-              <div className="d-flex align-items-center gap-3 mb-4 pb-3 border-bottom">
-                <div
-                  className="rounded-circle text-white d-flex align-items-center justify-content-center fw-bold fs-3 shadow-sm"
-                  style={{
-                    width: "64px",
-                    height: "64px",
-                    background: "linear-gradient(135deg, #0064d2, #38bdf8)",
-                  }}
-                >
-                  {user?.FullName ? user.FullName.charAt(0).toUpperCase() : "U"}
-                </div>
-                <div>
-                  <h5 className="fw-bold mb-0 text-dark">{user?.FullName || user?.Username}</h5>
-                  <div className="text-muted small">{user?.Email}</div>
-                  <span className="badge bg-primary-subtle text-primary mt-1">
-                    {user?.Role || "Procurement Officer"}
-                  </span>
-                </div>
-              </div>
+              {user ? (
+                <>
+                  <div className="d-flex align-items-center gap-3 mb-4 pb-3 border-bottom">
+                    <div
+                      className="rounded-circle text-white d-flex align-items-center justify-content-center fw-bold fs-3 shadow-sm"
+                      style={{
+                        width: "64px",
+                        height: "64px",
+                        background: "linear-gradient(135deg, #0064d2, #38bdf8)",
+                      }}
+                    >
+                      {user?.FullName ? user.FullName.charAt(0).toUpperCase() : "U"}
+                    </div>
+                    <div>
+                      <h5 className="fw-bold mb-0 text-dark">{user?.FullName || user?.Username}</h5>
+                      <div className="text-muted small">{user?.Email}</div>
+                      <span className="badge bg-primary-subtle text-primary mt-1">
+                        {user?.Role || "Procurement Officer"}
+                      </span>
+                    </div>
+                  </div>
 
-              <div className="row g-3 small">
-                <div className="col-6">
-                  <span className="text-muted d-block">System User ID</span>
-                  <span className="fw-bold font-monospace">#{user?.UserID || "-"}</span>
-                </div>
-                <div className="col-6">
-                  <span className="text-muted d-block">Login Username</span>
-                  <span className="fw-semibold text-dark">{user?.Username}</span>
-                </div>
-                <div className="col-6">
-                  <span className="text-muted d-block">Department</span>
-                  <span className="fw-semibold">{user?.Department || "General"}</span>
-                </div>
-                <div className="col-6">
-                  <span className="text-muted d-block">Contact Phone</span>
-                  <span>{user?.Phone || "Not provided"}</span>
-                </div>
-              </div>
+                  <div className="row g-3 small">
+                    <div className="col-6">
+                      <span className="text-muted d-block">System User ID</span>
+                      <span className="fw-bold font-monospace">#{user?.UserID || "-"}</span>
+                    </div>
+                    <div className="col-6">
+                      <span className="text-muted d-block">Login Username</span>
+                      <span className="fw-semibold text-dark">{user?.Username}</span>
+                    </div>
+                    <div className="col-6">
+                      <span className="text-muted d-block">Department</span>
+                      <span className="fw-semibold">{user?.Department || "General"}</span>
+                    </div>
+                    <div className="col-6">
+                      <span className="text-muted d-block">Contact Phone</span>
+                      <span>{user?.Phone || "Not provided"}</span>
+                    </div>
+                  </div>
 
-              <div className="mt-4 p-3 bg-light rounded-3 small text-secondary border">
-                <div className="fw-bold text-dark mb-1">
-                  <i className="bi bi-shield-check text-success me-1"></i> Authentication Standard
+                  <div className="mt-4 p-3 bg-light rounded-3 small text-secondary border">
+                    <div className="fw-bold text-dark mb-1">
+                      <i className="bi bi-shield-check text-success me-1"></i> Authentication Standard
+                    </div>
+                    Signed in via OAuth2 JWT Bearer Token. Authorized to perform database modifications.
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-4">
+                  <div
+                    className="rounded-circle bg-light text-primary mx-auto d-flex align-items-center justify-content-center mb-3 shadow-sm"
+                    style={{ width: "64px", height: "64px" }}
+                  >
+                    <i className="bi bi-globe fs-2 text-primary"></i>
+                  </div>
+                  <h6 className="fw-bold text-dark mb-1">Unauthenticated Public Access</h6>
+                  <p className="text-muted small mb-3">
+                    You are exploring the SAP ERP Procurement System in public read-only mode. You can view all metrics, materials, purchase orders, and directory statistics.
+                  </p>
+                  <div className="p-3 bg-light rounded-3 small text-start border mb-3">
+                    <div className="fw-semibold text-dark mb-1">
+                      <i className="bi bi-info-circle text-primary me-1"></i> Staff Onboarding & Writes
+                    </div>
+                    To onboard new personnel or edit database records, sign in using the administrator account:
+                    <div className="mt-2 font-monospace text-secondary bg-white p-2 rounded border small">
+                      Username: <strong>himanshu</strong> &bull; Password: <strong>Admin@123</strong>
+                    </div>
+                  </div>
+                  <button
+                    className="btn btn-erp-primary btn-sm w-100"
+                    onClick={() => openLoginModal()}
+                  >
+                    <i className="bi bi-box-arrow-in-right me-1"></i>
+                    Sign In as Administrator
+                  </button>
                 </div>
-                Signed in via OAuth2 JWT Bearer Token. Authorization credentials are stored securely in local browser storage and authenticated against FastAPI.
-              </div>
+              )}
             </div>
           </div>
         </div>
+
 
         {/* Enterprise Personnel Statistics */}
         <div className="col-12 col-lg-7">

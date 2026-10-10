@@ -3,7 +3,8 @@ import { useAuth } from "../../context/AuthContext";
 
 export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) {
   const { currentPath, navigate } = useAppNavigation();
-  const { logout, user } = useAuth();
+  const { logout, user, openLoginModal } = useAuth();
+
 
   const handleNav = (path) => {
     navigate(path);
@@ -141,15 +142,27 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
             </div>
           )}
 
-          <button
-            className="btn btn-outline-danger btn-sm w-100 d-flex align-items-center justify-content-center gap-2"
-            onClick={logout}
-            title="Logout"
-          >
-            <i className="bi bi-box-arrow-right"></i>
-            {!collapsed && <span>Logout</span>}
-          </button>
+          {user ? (
+            <button
+              className="btn btn-outline-danger btn-sm w-100 d-flex align-items-center justify-content-center gap-2"
+              onClick={logout}
+              title="Sign Out"
+            >
+              <i className="bi bi-box-arrow-right"></i>
+              {!collapsed && <span>Sign Out</span>}
+            </button>
+          ) : (
+            <button
+              className="btn btn-primary btn-sm w-100 d-flex align-items-center justify-content-center gap-2"
+              onClick={() => openLoginModal(null, "access administrative features")}
+              title="Admin Login"
+            >
+              <i className="bi bi-box-arrow-in-right"></i>
+              {!collapsed && <span>Admin Login</span>}
+            </button>
+          )}
         </div>
+
       </aside>
     </>
   );

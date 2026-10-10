@@ -7,9 +7,12 @@ import StatusBadge from "../../components/Common/StatusBadge";
 import Modal from "../../components/Common/Modal";
 import ConfirmDialog from "../../components/Common/ConfirmDialog";
 import { useToast } from "../../context/ToastContext";
+import { useAuth } from "../../context/AuthContext";
 
 export default function PurchaseRequisitions() {
   const { showToast } = useToast();
+  const { requireAuth } = useAuth();
+
 
   const [requisitions, setRequisitions] = useState([]);
   const [materials, setMaterials] = useState([]);
@@ -98,23 +101,61 @@ export default function PurchaseRequisitions() {
   ];
 
   const handleOpenCreate = () => {
-    setFormData(initialFormState);
-    setFormModal({ open: true, isEdit: false, data: null });
+    requireAuth(() => {
+      setFormData(initialFormState);
+      setFormModal({ open: true, isEdit: false, data: null });
+    }, "create a new purchase requisition");
   };
 
   const handleOpenEdit = (pr) => {
-    setFormData({
-      MaterialID: pr.MaterialID,
-      VendorID: pr.VendorID,
-      Quantity: pr.Quantity,
-      UnitPrice: pr.UnitPrice,
-      Priority: pr.Priority,
-      RequestDate: pr.RequestDate,
-      RequiredDate: pr.RequiredDate,
-      Remarks: pr.Remarks || "",
-    });
-    setFormModal({ open: true, isEdit: true, data: pr });
+    requireAuth(() => {
+      setFormData({
+        MaterialID: pr.MaterialID,
+        VendorID: pr.VendorID,
+        Quantity: pr.Quantity,
+        UnitPrice: pr.UnitPrice,
+        Priority: pr.Priority,
+        RequestDate: pr.RequestDate,
+        RequiredDate: pr.RequiredDate,
+        Remarks: pr.Remarks || "",
+      });
+      setFormModal({ open: true, isEdit: true, data: pr });
+    }, `edit requisition "${pr.PRNumber}"`);
   };
+
+  const handleOpenApprove = (pr) => {
+    requireAuth(() => {
+      setConfirmModal({
+        open: true,
+        action: "approve",
+        id: pr.PRID,
+        prNumber: pr.PRNumber,
+      });
+    }, `approve requisition "${pr.PRNumber}"`);
+  };
+
+  const handleOpenReject = (pr) => {
+    requireAuth(() => {
+      setConfirmModal({
+        open: true,
+        action: "reject",
+        id: pr.PRID,
+        prNumber: pr.PRNumber,
+      });
+    }, `reject requisition "${pr.PRNumber}"`);
+  };
+
+  const handleOpenDelete = (pr) => {
+    requireAuth(() => {
+      setConfirmModal({
+        open: true,
+        action: "delete",
+        id: pr.PRID,
+        prNumber: pr.PRNumber,
+      });
+    }, `delete requisition "${pr.PRNumber}"`);
+  };
+
 
   // Material selection auto-populates unit price
   const handleMaterialChange = (e) => {
@@ -329,28 +370,14 @@ export default function PurchaseRequisitions() {
               <>
                 <button
                   className="btn btn-outline-success btn-action"
-                  onClick={() =>
-                    setConfirmModal({
-                      open: true,
-                      action: "approve",
-                      id: row.PRID,
-                      prNumber: row.PRNumber,
-                    })
-                  }
+                  onClick={() => handleOpenApprove(row)}
                   title="Approve Requisition"
                 >
                   <i className="bi bi-check-lg"></i>
                 </button>
                 <button
                   className="btn btn-outline-danger btn-action"
-                  onClick={() =>
-                    setConfirmModal({
-                      open: true,
-                      action: "reject",
-                      id: row.PRID,
-                      prNumber: row.PRNumber,
-                    })
-                  }
+                  onClick={() => handleOpenReject(row)}
                   title="Reject Requisition"
                 >
                   <i className="bi bi-x-lg"></i>
@@ -367,18 +394,12 @@ export default function PurchaseRequisitions() {
 
             <button
               className="btn btn-outline-danger btn-action"
-              onClick={() =>
-                setConfirmModal({
-                  open: true,
-                  action: "delete",
-                  id: row.PRID,
-                  prNumber: row.PRNumber,
-                })
-              }
+              onClick={() => handleOpenDelete(row)}
               title="Delete Requisition"
             >
               <i className="bi bi-trash"></i>
             </button>
+
           </div>
         )}
       />

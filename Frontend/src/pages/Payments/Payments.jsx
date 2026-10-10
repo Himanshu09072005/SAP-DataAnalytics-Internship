@@ -7,9 +7,12 @@ import StatusBadge from "../../components/Common/StatusBadge";
 import Modal from "../../components/Common/Modal";
 import ConfirmDialog from "../../components/Common/ConfirmDialog";
 import { useToast } from "../../context/ToastContext";
+import { useAuth } from "../../context/AuthContext";
 
 export default function Payments() {
   const { showToast } = useToast();
+  const { requireAuth } = useAuth();
+
 
   const [payments, setPayments] = useState([]);
   const [invoices, setInvoices] = useState([]);
@@ -120,11 +123,13 @@ export default function Payments() {
   ];
 
   const handleOpenCreate = () => {
-    if (payableInvoices.length === 0) {
-      showToast("All vendor invoices are fully settled. No pending payments.", "info");
-    }
-    setFormData({ ...initialFormState, TransactionReference: generateRef() });
-    setFormModal({ open: true, isEdit: false, data: null });
+    requireAuth(() => {
+      if (payableInvoices.length === 0) {
+        showToast("All vendor invoices are fully settled. No pending payments.", "info");
+      }
+      setFormData({ ...initialFormState, TransactionReference: generateRef() });
+      setFormModal({ open: true, isEdit: false, data: null });
+    }, "record a payment disbursement");
   };
 
   const handleInvoiceChange = (e) => {
@@ -143,16 +148,29 @@ export default function Payments() {
   };
 
   const handleOpenEdit = (pay) => {
-    setFormData({
-      InvoiceID: pay.InvoiceID,
-      PaymentMethod: pay.PaymentMethod || "Bank Transfer",
-      AmountPaid: pay.AmountPaid,
-      TransactionReference: pay.TransactionReference,
-      Status: pay.Status || "Completed",
-      Remarks: pay.Remarks || "",
-    });
-    setFormModal({ open: true, isEdit: true, data: pay });
+    requireAuth(() => {
+      setFormData({
+        InvoiceID: pay.InvoiceID,
+        PaymentMethod: pay.PaymentMethod || "Bank Transfer",
+        AmountPaid: pay.AmountPaid,
+        TransactionReference: pay.TransactionReference,
+        Status: pay.Status || "Completed",
+        Remarks: pay.Remarks || "",
+      });
+      setFormModal({ open: true, isEdit: true, data: pay });
+    }, `edit payment "${pay.PaymentNumber}"`);
   };
+
+  const handleOpenDelete = (pay) => {
+    requireAuth(() => {
+      setDeleteDialog({
+        open: true,
+        id: pay.PaymentID,
+        payNumber: pay.PaymentNumber,
+      });
+    }, `delete payment "${pay.PaymentNumber}"`);
+  };
+
 
   const handleFormSubmit = async (e) => {
     e.preventDefault();
@@ -334,17 +352,12 @@ export default function Payments() {
             </button>
             <button
               className="btn btn-outline-danger btn-action"
-              onClick={() =>
-                setDeleteDialog({
-                  open: true,
-                  id: row.PaymentID,
-                  payNumber: row.PaymentNumber,
-                })
-              }
+              onClick={() => handleOpenDelete(row)}
               title="Delete Payment"
             >
               <i className="bi bi-trash"></i>
             </button>
+
           </div>
         )}
       />

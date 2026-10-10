@@ -8,9 +8,12 @@ import StatusBadge from "../../components/Common/StatusBadge";
 import Modal from "../../components/Common/Modal";
 import ConfirmDialog from "../../components/Common/ConfirmDialog";
 import { useToast } from "../../context/ToastContext";
+import { useAuth } from "../../context/AuthContext";
 
 export default function PurchaseOrders() {
   const { showToast } = useToast();
+  const { requireAuth } = useAuth();
+
 
   const [purchaseOrders, setPurchaseOrders] = useState([]);
   const [requisitions, setRequisitions] = useState([]);
@@ -94,25 +97,63 @@ export default function PurchaseOrders() {
   ];
 
   const handleOpenCreate = () => {
-    if (availableApprovedPrs.length === 0) {
-      showToast(
-        "No Approved Purchase Requisitions available. Please approve a pending PR first.",
-        "warning"
-      );
-    }
-    setFormData(initialFormState);
-    setFormModal({ open: true, isEdit: false, data: null });
+    requireAuth(() => {
+      if (availableApprovedPrs.length === 0) {
+        showToast(
+          "No Approved Purchase Requisitions available. Please approve a pending PR first.",
+          "warning"
+        );
+      }
+      setFormData(initialFormState);
+      setFormModal({ open: true, isEdit: false, data: null });
+    }, "generate a purchase order");
   };
 
   const handleOpenEdit = (po) => {
-    setFormData({
-      PRID: po.PRID,
-      ExpectedDeliveryDate: po.ExpectedDeliveryDate,
-      PaymentTerms: po.PaymentTerms || "Net 30",
-      Remarks: po.Remarks || "",
-    });
-    setFormModal({ open: true, isEdit: true, data: po });
+    requireAuth(() => {
+      setFormData({
+        PRID: po.PRID,
+        ExpectedDeliveryDate: po.ExpectedDeliveryDate,
+        PaymentTerms: po.PaymentTerms || "Net 30",
+        Remarks: po.Remarks || "",
+      });
+      setFormModal({ open: true, isEdit: true, data: po });
+    }, `edit purchase order "${po.PONumber}"`);
   };
+
+  const handleOpenComplete = (po) => {
+    requireAuth(() => {
+      setConfirmModal({
+        open: true,
+        action: "complete",
+        id: po.POID,
+        poNumber: po.PONumber,
+      });
+    }, `mark PO "${po.PONumber}" as Completed`);
+  };
+
+  const handleOpenCancel = (po) => {
+    requireAuth(() => {
+      setConfirmModal({
+        open: true,
+        action: "cancel",
+        id: po.POID,
+        poNumber: po.PONumber,
+      });
+    }, `cancel purchase order "${po.PONumber}"`);
+  };
+
+  const handleOpenDelete = (po) => {
+    requireAuth(() => {
+      setConfirmModal({
+        open: true,
+        action: "delete",
+        id: po.POID,
+        poNumber: po.PONumber,
+      });
+    }, `delete purchase order "${po.PONumber}"`);
+  };
+
 
   const handleFormSubmit = async (e) => {
     e.preventDefault();
@@ -288,28 +329,14 @@ export default function PurchaseOrders() {
               <>
                 <button
                   className="btn btn-outline-success btn-action"
-                  onClick={() =>
-                    setConfirmModal({
-                      open: true,
-                      action: "complete",
-                      id: row.POID,
-                      poNumber: row.PONumber,
-                    })
-                  }
+                  onClick={() => handleOpenComplete(row)}
                   title="Mark as Completed"
                 >
                   <i className="bi bi-check2-all"></i>
                 </button>
                 <button
                   className="btn btn-outline-warning btn-action"
-                  onClick={() =>
-                    setConfirmModal({
-                      open: true,
-                      action: "cancel",
-                      id: row.POID,
-                      poNumber: row.PONumber,
-                    })
-                  }
+                  onClick={() => handleOpenCancel(row)}
                   title="Cancel Order"
                 >
                   <i className="bi bi-slash-circle"></i>
@@ -326,18 +353,12 @@ export default function PurchaseOrders() {
 
             <button
               className="btn btn-outline-danger btn-action"
-              onClick={() =>
-                setConfirmModal({
-                  open: true,
-                  action: "delete",
-                  id: row.POID,
-                  poNumber: row.PONumber,
-                })
-              }
+              onClick={() => handleOpenDelete(row)}
               title="Delete PO"
             >
               <i className="bi bi-trash"></i>
             </button>
+
           </div>
         )}
       />

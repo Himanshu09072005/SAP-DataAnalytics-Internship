@@ -35,7 +35,11 @@ client.interceptors.response.use(
 
     // Extract cleanest error message
     let message = "An unexpected error occurred.";
-    if (error.response?.data?.detail) {
+    if (error.response?.status === 401) {
+      message = "Authentication required: Please sign in with an authorized account (e.g. himanshu) to modify database records.";
+    } else if (error.response?.status === 403) {
+      message = "Access forbidden: Your account does not have sufficient permission for this operation.";
+    } else if (error.response?.data?.detail) {
       if (typeof error.response.data.detail === "string") {
         message = error.response.data.detail;
       } else if (Array.isArray(error.response.data.detail)) {
@@ -47,6 +51,7 @@ client.interceptors.response.use(
 
     error.friendlyMessage = message;
     return Promise.reject(error);
+
   }
 );
 

@@ -5,9 +5,11 @@ import StatusBadge from "../../components/Common/StatusBadge";
 import Modal from "../../components/Common/Modal";
 import ConfirmDialog from "../../components/Common/ConfirmDialog";
 import { useToast } from "../../context/ToastContext";
+import { useAuth } from "../../context/AuthContext";
 
 export default function Materials() {
   const { showToast } = useToast();
+  const { requireAuth } = useAuth();
 
   const [materials, setMaterials] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -77,26 +79,42 @@ export default function Materials() {
 
   // Open Create Modal
   const handleOpenCreate = () => {
-    setFormData(initialFormState);
-    setFormModal({ open: true, isEdit: false, data: null });
+    requireAuth(() => {
+      setFormData(initialFormState);
+      setFormModal({ open: true, isEdit: false, data: null });
+    }, "create a new material");
   };
 
   // Open Edit Modal
   const handleOpenEdit = (material) => {
-    setFormData({
-      MaterialName: material.MaterialName || "",
-      Category: material.Category || "",
-      MaterialType: material.MaterialType || "",
-      UnitOfMeasure: material.UnitOfMeasure || "",
-      UnitPrice: material.UnitPrice !== undefined ? material.UnitPrice : "",
-      CurrentStock: material.CurrentStock !== undefined ? material.CurrentStock : "",
-      ReorderLevel: material.ReorderLevel !== undefined ? material.ReorderLevel : "",
-      StorageLocation: material.StorageLocation || "",
-      Plant: material.Plant || "",
-      Status: material.Status || "Active",
-    });
-    setFormModal({ open: true, isEdit: true, data: material });
+    requireAuth(() => {
+      setFormData({
+        MaterialName: material.MaterialName || "",
+        Category: material.Category || "",
+        MaterialType: material.MaterialType || "",
+        UnitOfMeasure: material.UnitOfMeasure || "",
+        UnitPrice: material.UnitPrice !== undefined ? material.UnitPrice : "",
+        CurrentStock: material.CurrentStock !== undefined ? material.CurrentStock : "",
+        ReorderLevel: material.ReorderLevel !== undefined ? material.ReorderLevel : "",
+        StorageLocation: material.StorageLocation || "",
+        Plant: material.Plant || "",
+        Status: material.Status || "Active",
+      });
+      setFormModal({ open: true, isEdit: true, data: material });
+    }, `edit material "${material.MaterialCode}"`);
   };
+
+  // Open Delete Dialog
+  const handleOpenDelete = (material) => {
+    requireAuth(() => {
+      setDeleteDialog({
+        open: true,
+        id: material.MaterialID,
+        name: `${material.MaterialCode} - ${material.MaterialName}`,
+      });
+    }, `delete material "${material.MaterialCode}"`);
+  };
+
 
   // Submit Create or Edit
   const handleFormSubmit = async (e) => {
@@ -284,17 +302,12 @@ export default function Materials() {
             </button>
             <button
               className="btn btn-outline-danger btn-action"
-              onClick={() =>
-                setDeleteDialog({
-                  open: true,
-                  id: row.MaterialID,
-                  name: `${row.MaterialCode} - ${row.MaterialName}`,
-                })
-              }
+              onClick={() => handleOpenDelete(row)}
               title="Delete Material"
             >
               <i className="bi bi-trash"></i>
             </button>
+
           </div>
         )}
       />

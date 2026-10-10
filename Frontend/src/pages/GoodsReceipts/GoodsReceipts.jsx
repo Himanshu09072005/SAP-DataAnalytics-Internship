@@ -9,9 +9,12 @@ import StatusBadge from "../../components/Common/StatusBadge";
 import Modal from "../../components/Common/Modal";
 import ConfirmDialog from "../../components/Common/ConfirmDialog";
 import { useToast } from "../../context/ToastContext";
+import { useAuth } from "../../context/AuthContext";
 
 export default function GoodsReceipts() {
   const { showToast } = useToast();
+  const { requireAuth } = useAuth();
+
 
   const [goodsReceipts, setGoodsReceipts] = useState([]);
   const [purchaseOrders, setPurchaseOrders] = useState([]);
@@ -123,11 +126,13 @@ export default function GoodsReceipts() {
   ];
 
   const handleOpenCreate = () => {
-    if (availableOpenPOs.length === 0) {
-      showToast("No Open Purchase Orders currently available for goods receipting.", "warning");
-    }
-    setFormData(initialFormState);
-    setFormModal({ open: true, isEdit: false, data: null });
+    requireAuth(() => {
+      if (availableOpenPOs.length === 0) {
+        showToast("No Open Purchase Orders currently available for goods receipting.", "warning");
+      }
+      setFormData(initialFormState);
+      setFormModal({ open: true, isEdit: false, data: null });
+    }, "process a goods receipt");
   };
 
   const handlePoChange = (e) => {
@@ -142,16 +147,29 @@ export default function GoodsReceipts() {
   };
 
   const handleOpenEdit = (gr) => {
-    setFormData({
-      POID: gr.POID,
-      QuantityReceived: gr.QuantityReceived,
-      QualityStatus: gr.QualityStatus || "Accepted",
-      WarehouseLocation: gr.WarehouseLocation || "Warehouse-A",
-      Status: gr.Status || "Completed",
-      Remarks: gr.Remarks || "",
-    });
-    setFormModal({ open: true, isEdit: true, data: gr });
+    requireAuth(() => {
+      setFormData({
+        POID: gr.POID,
+        QuantityReceived: gr.QuantityReceived,
+        QualityStatus: gr.QualityStatus || "Accepted",
+        WarehouseLocation: gr.WarehouseLocation || "Warehouse-A",
+        Status: gr.Status || "Completed",
+        Remarks: gr.Remarks || "",
+      });
+      setFormModal({ open: true, isEdit: true, data: gr });
+    }, `edit goods receipt "${gr.GRNumber}"`);
   };
+
+  const handleOpenDelete = (gr) => {
+    requireAuth(() => {
+      setDeleteDialog({
+        open: true,
+        id: gr.GRID,
+        grNumber: gr.GRNumber,
+      });
+    }, `delete goods receipt "${gr.GRNumber}"`);
+  };
+
 
   const handleFormSubmit = async (e) => {
     e.preventDefault();
@@ -329,17 +347,12 @@ export default function GoodsReceipts() {
             </button>
             <button
               className="btn btn-outline-danger btn-action"
-              onClick={() =>
-                setDeleteDialog({
-                  open: true,
-                  id: row.GRID,
-                  grNumber: row.GRNumber,
-                })
-              }
+              onClick={() => handleOpenDelete(row)}
               title="Delete GR"
             >
               <i className="bi bi-trash"></i>
             </button>
+
           </div>
         )}
       />

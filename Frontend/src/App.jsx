@@ -34,9 +34,10 @@ function AppContent() {
     );
   }
 
-  if (!isAuthenticated || currentPath === "/login") {
+  if (currentPath === "/login") {
     return <Login />;
   }
+
 
   // Route switch
   const renderCurrentPage = () => {
