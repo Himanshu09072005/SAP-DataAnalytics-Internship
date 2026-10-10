@@ -9,3 +9,4 @@ email-validator==2.2.0
 # pymysql is only needed if connecting to MySQL (DB_HOST env var is set).
 # SQLite is built into Python — no extra driver needed.
 pymysql==1.1.1
+psycopg2-binary==2.9.9
