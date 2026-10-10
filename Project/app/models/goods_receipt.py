@@ -5,7 +5,6 @@ from sqlalchemy import (
     Date,
     DECIMAL,
     ForeignKey,
-    Enum,
 )
 
 from app.database import Base
@@ -40,32 +39,13 @@ class GoodsReceipt(Base):
 
     QuantityReceived = Column(DECIMAL(10, 2), nullable=False)
 
-    QualityStatus = Column(
-        Enum(
-            "Accepted",
-            "Rejected",
-            "Partially Accepted",
-            name="quality_status_enum",
-        ),
-        default="Accepted",
-    )
+    # QualityStatus: Accepted, Rejected, Partially Accepted
+    QualityStatus = Column(String(30), default="Accepted")
 
-    WarehouseLocation = Column(
-        Enum(
-            "Warehouse-A",
-            "Warehouse-B",
-            "Warehouse-C",
-            name="warehouse_location_enum",
-        )
-    )
+    # WarehouseLocation: Warehouse-A, Warehouse-B, Warehouse-C
+    WarehouseLocation = Column(String(30))
 
-    Status = Column(
-        Enum(
-            "Completed",
-            "Pending Inspection",
-            name="goods_receipt_status_enum",
-        ),
-        default="Completed",
-    )
+    # Status: Completed, Pending Inspection
+    Status = Column(String(30), default="Completed")
 
     Remarks = Column(String(255))

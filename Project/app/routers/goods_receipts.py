@@ -130,7 +130,6 @@ def create_goods_receipt(
 @router.get("/", response_model=list[GoodsReceiptResponse])
 def get_goods_receipts(
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
 ):
     return db.query(GoodsReceipt).all()
 
@@ -139,7 +138,6 @@ def get_goods_receipts(
 def get_goods_receipt(
     grid: int,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
 ):
     receipt = (
         db.query(GoodsReceipt)
@@ -154,6 +152,7 @@ def get_goods_receipt(
         )
 
     return receipt
+
 
 
 @router.put("/{grid}", response_model=GoodsReceiptResponse)

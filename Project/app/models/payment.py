@@ -5,7 +5,6 @@ from sqlalchemy import (
     Date,
     DECIMAL,
     ForeignKey,
-    Enum,
 )
 
 from app.database import Base
@@ -43,17 +42,8 @@ class Payment(Base):
         nullable=False,
     )
 
-    PaymentMethod = Column(
-        Enum(
-            "Bank Transfer",
-            "Cheque",
-            "UPI",
-            "NEFT",
-            "RTGS",
-            name="payment_method_enum",
-        ),
-        nullable=False,
-    )
+    # PaymentMethod: Bank Transfer, Cheque, UPI, NEFT, RTGS
+    PaymentMethod = Column(String(30), nullable=False)
 
     AmountPaid = Column(
         DECIMAL(12, 2),
@@ -66,15 +56,7 @@ class Payment(Base):
         nullable=False,
     )
 
-    Status = Column(
-        Enum(
-            "Completed",
-            "Failed",
-            "Processing",
-            name="payment_status_enum",
-        ),
-        nullable=False,
-        default="Completed",
-    )
+    # Status: Completed, Failed, Processing
+    Status = Column(String(20), nullable=False, default="Completed")
 
     Remarks = Column(String(255))

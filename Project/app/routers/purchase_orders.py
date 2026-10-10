@@ -96,7 +96,6 @@ def create_purchase_order(
 @router.get("/", response_model=list[PurchaseOrderResponse])
 def get_purchase_orders(
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
 ):
     return db.query(PurchaseOrder).all()
 
@@ -105,7 +104,6 @@ def get_purchase_orders(
 def get_purchase_order(
     po_id: int,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
 ):
     po = (
         db.query(PurchaseOrder)
@@ -120,6 +118,7 @@ def get_purchase_order(
         )
 
     return po
+
 
 
 @router.put("/{po_id}", response_model=PurchaseOrderResponse)

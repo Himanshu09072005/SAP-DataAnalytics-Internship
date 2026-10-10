@@ -5,7 +5,6 @@ from sqlalchemy import (
     Date,
     DECIMAL,
     ForeignKey,
-    Enum,
 )
 
 from app.database import Base
@@ -64,14 +63,7 @@ class Invoice(Base):
         nullable=False,
     )
 
-    PaymentStatus = Column(
-        Enum(
-            "Pending",
-            "Paid",
-            "Partially Paid",
-            name="payment_status_enum",
-        ),
-        default="Pending",
-    )
+    # PaymentStatus: Pending, Paid, Partially Paid
+    PaymentStatus = Column(String(20), default="Pending")
 
     Remarks = Column(String(255))

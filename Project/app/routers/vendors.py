@@ -54,7 +54,6 @@ def create_vendor(
 @router.get("/", response_model=list[VendorResponse])
 def get_all_vendors(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
 ):
     return db.query(Vendor).all()
 
@@ -63,7 +62,6 @@ def get_all_vendors(
 def get_vendor(
     vendor_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
 ):
     vendor = db.query(Vendor).filter(
         Vendor.VendorID == vendor_id
@@ -76,6 +74,7 @@ def get_vendor(
         )
 
     return vendor
+
 
 
 @router.put("/{vendor_id}", response_model=VendorResponse)

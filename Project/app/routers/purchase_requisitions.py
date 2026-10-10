@@ -118,7 +118,6 @@ def create_purchase_requisition(
 )
 def get_all_purchase_requisitions(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ):
 
     requisitions = (
@@ -141,7 +140,6 @@ def get_all_purchase_requisitions(
 def get_purchase_requisition(
     pr_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ):
 
     requisition = (
@@ -157,6 +155,7 @@ def get_purchase_requisition(
         )
 
     return requisition
+
 
 
 

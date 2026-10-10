@@ -57,7 +57,6 @@ def create_material(
 @router.get("/", response_model=list[MaterialResponse])
 def get_all_materials(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
 ):
     materials = db.query(Material).all()
     return materials
@@ -70,7 +69,6 @@ def get_all_materials(
 def get_material_by_id(
     material_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
 ):
     material = db.query(Material).filter(
         Material.MaterialID == material_id
@@ -83,6 +81,7 @@ def get_material_by_id(
         )
 
     return material
+
 
 
 # =========================

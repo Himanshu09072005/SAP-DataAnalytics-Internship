@@ -13,8 +13,6 @@ from app.models.goods_receipt import GoodsReceipt
 from app.models.invoice import Invoice
 from app.models.payment import Payment
 
-from app.security import get_current_user
-
 router = APIRouter(
     prefix="/dashboard",
     tags=["Dashboard"],
@@ -24,8 +22,8 @@ router = APIRouter(
 @router.get("/summary")
 def get_dashboard_summary(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ):
+
     total_users = db.query(func.count(User.UserID)).scalar()
 
     total_vendors = db.query(func.count(Vendor.VendorID)).scalar()
@@ -85,7 +83,6 @@ def get_dashboard_summary(
 @router.get("/pr-status")
 def get_pr_status(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ):
     status_counts = (
         db.query(
@@ -114,7 +111,6 @@ def get_pr_status(
 @router.get("/po-status")
 def get_po_status(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ):
     status_counts = (
         db.query(
@@ -141,7 +137,6 @@ def get_po_status(
 @router.get("/inventory")
 def get_inventory_dashboard(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ):
     total_stock = (
         db.query(func.sum(Material.CurrentStock)).scalar()
@@ -174,7 +169,6 @@ def get_inventory_dashboard(
 @router.get("/payment-status")
 def get_payment_status(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ):
     # Payment transaction status
     payment_status_counts = (
@@ -237,7 +231,6 @@ from sqlalchemy import extract
 @router.get("/users")
 def get_user_dashboard(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ):
     total_users = db.query(func.count(User.UserID)).scalar() or 0
 
@@ -288,7 +281,6 @@ def get_user_dashboard(
 @router.get("/vendors")
 def get_vendor_dashboard(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ):
     total_vendors = db.query(func.count(Vendor.VendorID)).scalar() or 0
 
@@ -316,7 +308,6 @@ def get_vendor_dashboard(
 @router.get("/invoices")
 def get_invoice_dashboard(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ):
     invoice_status = (
         db.query(
@@ -349,7 +340,6 @@ def get_invoice_dashboard(
 @router.get("/monthly-purchases")
 def get_monthly_purchases(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ):
     monthly_data = (
         db.query(
@@ -388,7 +378,6 @@ def get_monthly_purchases(
 @router.get("/top-materials")
 def get_top_materials(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ):
     materials = (
         db.query(
@@ -415,4 +404,4 @@ def get_top_materials(
             "total_requested_quantity": float(quantity),
         }
         for name, quantity in materials
-    ]
+    ]

@@ -143,7 +143,6 @@ def create_payment(
 @router.get("/", response_model=list[PaymentResponse])
 def get_payments(
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
 ):
     return db.query(Payment).all()
 
@@ -152,7 +151,6 @@ def get_payments(
 def get_payment(
     payment_id: int,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
 ):
     payment = (
         db.query(Payment)
@@ -167,6 +165,7 @@ def get_payment(
         )
 
     return payment
+
 
 
 @router.put("/{payment_id}", response_model=PaymentResponse)

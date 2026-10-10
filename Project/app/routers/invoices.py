@@ -98,7 +98,6 @@ def create_invoice(
 @router.get("/", response_model=list[InvoiceResponse])
 def get_invoices(
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
 ):
     return db.query(Invoice).all()
 
@@ -107,7 +106,6 @@ def get_invoices(
 def get_invoice(
     invoice_id: int,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
 ):
     invoice = (
         db.query(Invoice)
@@ -122,6 +120,7 @@ def get_invoice(
         )
 
     return invoice
+
 
 
 @router.put("/{invoice_id}", response_model=InvoiceResponse)
