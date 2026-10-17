@@ -1,142 +1,50 @@
-from sqlalchemy.orm import Session
-from sqlalchemy import func
 from fastapi import APIRouter, Depends, HTTPException, status
-
-from app.database import get_db
-from app.models.material import Material
-from app.models.user import User
-from app.schemas.material import (
-    MaterialCreate,
-    MaterialUpdate,
-    MaterialResponse,
-)
+from app.dependencies import get_db
+from app.schemas.material import MaterialCreate, MaterialUpdate, MaterialResponse
 from app.security import get_current_user
 
-router = APIRouter(
-    prefix="/materials",
-    tags=["Materials"]
-)
+router = APIRouter(prefix="/materials", tags=["Materials"])
 
-
-# =========================
-# CREATE MATERIAL
-# =========================
 @router.post("/", response_model=MaterialResponse, status_code=status.HTTP_201_CREATED)
-def create_material(
-    material: MaterialCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    existing_material = db.query(Material).filter(
-        Material.MaterialCode == material.MaterialCode
-    ).first()
+async def create_material(material: MaterialCreate, db = Depends(get_db), current_user = Depends(get_current_user)):
+    # Ensure unique MaterialCode
+    existing = await db["materials"].find_one({"MaterialCode": material.MaterialCode})
+    if existing:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Material code already exists.")
+    # Generate new MaterialID (auto-increment style)
+    last = await db["materials"].find_one(sort=[("MaterialID", -1)])
+    new_id = (last.get("MaterialID", 0) + 1) if last else 1
+    material_dict = material.model_dump()
+    material_dict["MaterialID"] = new_id
+    result = await db["materials"].insert_one(material_dict)
+    material_dict["_id"] = result.inserted_id
+    return material_dict
 
-    if existing_material:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Material code already exists."
-        )
-
-    max_id = db.query(func.max(Material.MaterialID)).scalar() or 0
-
-    new_material = Material(
-        MaterialID=max_id + 1,
-        **material.model_dump()
-    )
-
-    db.add(new_material)
-    db.commit()
-    db.refresh(new_material)
-
-    return new_material
-
-
-# =========================
-# GET ALL MATERIALS
-# =========================
 @router.get("/", response_model=list[MaterialResponse])
-def get_all_materials(
-    db: Session = Depends(get_db),
-):
-    materials = db.query(Material).all()
-    return materials
+async def get_all_materials(db = Depends(get_db)):
+    return await db["materials"].find().to_list(length=None)
 
-
-# =========================
-# GET MATERIAL BY ID
-# =========================
 @router.get("/{material_id}", response_model=MaterialResponse)
-def get_material_by_id(
-    material_id: int,
-    db: Session = Depends(get_db),
-):
-    material = db.query(Material).filter(
-        Material.MaterialID == material_id
-    ).first()
-
+async def get_material_by_id(material_id: int, db = Depends(get_db)):
+    material = await db["materials"].find_one({"MaterialID": material_id})
     if not material:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Material not found."
-        )
-
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Material not found.")
     return material
 
-
-
-# =========================
-# UPDATE MATERIAL
-# =========================
 @router.put("/{material_id}", response_model=MaterialResponse)
-def update_material(
-    material_id: int,
-    material_update: MaterialUpdate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    material = db.query(Material).filter(
-        Material.MaterialID == material_id
-    ).first()
+async def update_material(material_id: int, material_data: MaterialUpdate, db = Depends(get_db), current_user = Depends(get_current_user)):
+    existing = await db["materials"].find_one({"MaterialID": material_id})
+    if not existing:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Material not found.")
+    update_dict = material_data.model_dump(exclude_unset=True)
+    await db["materials"].update_one({"MaterialID": material_id}, {"$set": update_dict})
+    updated = await db["materials"].find_one({"MaterialID": material_id})
+    return updated
 
-    if not material:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Material not found."
-        )
-
-    update_data = material_update.model_dump(exclude_unset=True)
-
-    for key, value in update_data.items():
-        setattr(material, key, value)
-
-    db.commit()
-    db.refresh(material)
-
-    return material
-
-
-# =========================
-# DELETE MATERIAL
-# =========================
 @router.delete("/{material_id}")
-def delete_material(
-    material_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    material = db.query(Material).filter(
-        Material.MaterialID == material_id
-    ).first()
-
-    if not material:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Material not found."
-        )
-
-    db.delete(material)
-    db.commit()
-
-    return {
-        "message": "Material deleted successfully."
-    }
+async def delete_material(material_id: int, db = Depends(get_db), current_user = Depends(get_current_user)):
+    existing = await db["materials"].find_one({"MaterialID": material_id})
+    if not existing:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Material not found.")
+    await db["materials"].delete_one({"MaterialID": material_id})
+    return {"message": "Material deleted successfully."}

@@ -1,10 +1,10 @@
-from pydantic import BaseModel
+from app.schemas.base import MongoBaseModel
 from datetime import date
 from decimal import Decimal
 from typing import Optional
 
 
-class PurchaseRequisitionCreate(BaseModel):
+class PurchaseRequisitionCreate(MongoBaseModel):
     MaterialID: int
     VendorID: int
     Quantity: Decimal
@@ -15,7 +15,7 @@ class PurchaseRequisitionCreate(BaseModel):
     Remarks: Optional[str] = None
 
 
-class PurchaseRequisitionUpdate(BaseModel):
+class PurchaseRequisitionUpdate(MongoBaseModel):
     MaterialID: Optional[int] = None
     VendorID: Optional[int] = None
     Quantity: Optional[Decimal] = None
@@ -27,7 +27,7 @@ class PurchaseRequisitionUpdate(BaseModel):
     Remarks: Optional[str] = None
 
 
-class PurchaseRequisitionResponse(BaseModel):
+class PurchaseRequisitionResponse(MongoBaseModel):
     PRID: int
     PRNumber: str
     MaterialID: int

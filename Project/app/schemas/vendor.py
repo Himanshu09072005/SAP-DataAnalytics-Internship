@@ -1,9 +1,9 @@
-from pydantic import BaseModel, EmailStr
+from app.schemas.base import MongoBaseModel, EmailStr
 from datetime import date
 from typing import Optional
 
 
-class VendorCreate(BaseModel):
+class VendorCreate(MongoBaseModel):
     VendorCode: str
     VendorName: str
     ContactPerson: Optional[str] = None
@@ -20,7 +20,7 @@ class VendorCreate(BaseModel):
     CreatedDate: date
 
 
-class VendorUpdate(BaseModel):
+class VendorUpdate(MongoBaseModel):
     VendorName: Optional[str] = None
     ContactPerson: Optional[str] = None
     Phone: Optional[str] = None
@@ -35,7 +35,7 @@ class VendorUpdate(BaseModel):
     Status: Optional[str] = None
 
 
-class VendorResponse(BaseModel):
+class VendorResponse(MongoBaseModel):
     VendorID: int
     VendorCode: str
     VendorName: str

@@ -1,264 +1,149 @@
+import logging
 from datetime import date
 from decimal import Decimal
-
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func
-from sqlalchemy.orm import Session
-
-from app.database import get_db
-from app.models.payment import Payment
-from app.models.invoice import Invoice
-from app.schemas.payment import (
-    PaymentCreate,
-    PaymentUpdate,
-    PaymentResponse,
-)
+from app.dependencies import get_db
+from app.schemas.payment import PaymentCreate, PaymentUpdate, PaymentResponse
 from app.security import get_current_user
 
-router = APIRouter(
-    prefix="/payments",
-    tags=["Payments"],
-)
+router = APIRouter(prefix="/payments", tags=["Payments"])
+logger = logging.getLogger(__name__)
 
-
-def generate_payment_number(db: Session):
-    last = (
-        db.query(Payment)
-        .order_by(Payment.PaymentID.desc())
-        .first()
-    )
-
-    if last:
-        number = int(last.PaymentNumber.replace("PAY", ""))
-        return f"PAY{number + 1:04d}"
-
+# Helper to generate next payment number
+async def generate_payment_number(db):
+    last = await db["payments"].find_one(sort=[("PaymentNumber", -1)])
+    if last and "PaymentNumber" in last:
+        try:
+            number = int(last["PaymentNumber"].replace("PAY", ""))
+            return f"PAY{number + 1:04d}"
+        except Exception:
+            logger.exception("Failed to parse PaymentNumber, resetting to PAY0001")
     return "PAY0001"
 
-
-def update_invoice_payment_status(db: Session, invoice: Invoice):
-    total_paid = (
-        db.query(func.coalesce(func.sum(Payment.AmountPaid), 0))
-        .filter(
-            Payment.InvoiceID == invoice.InvoiceID,
-            Payment.Status == "Completed",
-        )
-        .scalar()
-    )
-
-    total_paid = Decimal(total_paid)
-
+# Update invoice payment status based on payments collection
+async def update_invoice_payment_status(db, invoice_id, total_amount):
+    pipeline = [
+        {"$match": {"InvoiceID": invoice_id, "Status": "Completed"}},
+        {"$group": {"_id": None, "total_paid": {"$sum": "$AmountPaid"}}},
+    ]
+    agg = await db["payments"].aggregate(pipeline).to_list(length=1)
+    total_paid = Decimal(agg[0]["total_paid"] if agg else 0)
     if total_paid <= Decimal("0.00"):
-        invoice.PaymentStatus = "Pending"
-
-    elif total_paid < Decimal(invoice.TotalAmount):
-        invoice.PaymentStatus = "Partially Paid"
-
+        status = "Pending"
+    elif total_paid < Decimal(str(total_amount)):
+        status = "Partially Paid"
     else:
-        invoice.PaymentStatus = "Paid"
-
-    db.flush()
-
+        status = "Paid"
+    await db["invoices"].update_one({"InvoiceID": invoice_id}, {"$set": {"PaymentStatus": status}})
+    return status
 
 @router.post("/", response_model=PaymentResponse)
-def create_payment(
+async def create_payment(
     payment: PaymentCreate,
-    db: Session = Depends(get_db),
+    db=Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    invoice = (
-        db.query(Invoice)
-        .filter(Invoice.InvoiceID == payment.InvoiceID)
-        .first()
-    )
-
+    # Verify invoice exists
+    invoice = await db["invoices"].find_one({"InvoiceID": payment.InvoiceID})
     if not invoice:
-        raise HTTPException(
-            status_code=404,
-            detail="Invoice not found.",
-        )
+        raise HTTPException(status_code=404, detail="Invoice not found.")
+    if invoice.get("PaymentStatus") == "Paid":
+        raise HTTPException(status_code=400, detail="Invoice is already fully paid.")
 
-    if invoice.PaymentStatus == "Paid":
-        raise HTTPException(
-            status_code=400,
-            detail="Invoice is already fully paid.",
-        )
+    # Ensure unique transaction reference
+    existing = await db["payments"].find_one({"TransactionReference": payment.TransactionReference})
+    if existing:
+        raise HTTPException(status_code=400, detail="Transaction Reference already exists.")
 
-    existing_reference = (
-        db.query(Payment)
-        .filter(
-            Payment.TransactionReference ==
-            payment.TransactionReference
-        )
-        .first()
-    )
-
-    if existing_reference:
-        raise HTTPException(
-            status_code=400,
-            detail="Transaction Reference already exists.",
-        )
-
-    total_paid = (
-        db.query(func.coalesce(func.sum(Payment.AmountPaid), 0))
-        .filter(
-            Payment.InvoiceID == payment.InvoiceID,
-            Payment.Status == "Completed",
-        )
-        .scalar()
-    )
-
-    total_paid = Decimal(total_paid)
-
-    remaining = Decimal(invoice.TotalAmount) - total_paid
-
-    if Decimal(payment.AmountPaid) > remaining:
+    # Compute remaining balance
+    pipeline = [
+        {"$match": {"InvoiceID": payment.InvoiceID, "Status": "Completed"}},
+        {"$group": {"_id": None, "total_paid": {"$sum": "$AmountPaid"}}},
+    ]
+    agg = await db["payments"].aggregate(pipeline).to_list(length=1)
+    total_paid = Decimal(agg[0]["total_paid"] if agg else 0)
+    remaining = Decimal(str(invoice.get("TotalAmount"))) - total_paid
+    if Decimal(str(payment.AmountPaid)) > remaining:
         raise HTTPException(
             status_code=400,
             detail=f"Payment exceeds remaining balance ({remaining}).",
         )
 
-    new_payment = Payment(
-        PaymentNumber=generate_payment_number(db),
-        InvoiceID=invoice.InvoiceID,
-        VendorID=invoice.VendorID,
-        PaymentDate=date.today(),
-        PaymentMethod=payment.PaymentMethod,
-        AmountPaid=payment.AmountPaid,
-        TransactionReference=payment.TransactionReference,
-        Status="Completed",
-        Remarks=payment.Remarks,
-    )
+    payment_number = await generate_payment_number(db)
+    payment_doc = {
+        "PaymentNumber": payment_number,
+        "InvoiceID": invoice["InvoiceID"],
+        "VendorID": invoice.get("VendorID"),
+        "PaymentDate": date.today().isoformat(),
+        "PaymentMethod": payment.PaymentMethod,
+        "AmountPaid": payment.AmountPaid,
+        "TransactionReference": payment.TransactionReference,
+        "Status": "Completed",
+        "Remarks": payment.Remarks,
+    }
+    result = await db["payments"].insert_one(payment_doc)
+    payment_doc["_id"] = result.inserted_id
 
-    db.add(new_payment)
-    db.flush()
-
-    update_invoice_payment_status(db, invoice)
-
-    db.commit()
-    db.refresh(new_payment)
-
-    return new_payment
-
+    # Update invoice status
+    await update_invoice_payment_status(db, invoice["InvoiceID"], invoice.get("TotalAmount"))
+    return PaymentResponse(**payment_doc)
 
 @router.get("/", response_model=list[PaymentResponse])
-def get_payments(
-    db: Session = Depends(get_db),
-):
-    return db.query(Payment).all()
-
+async def get_payments(db=Depends(get_db)):
+    cursor = db["payments"].find()
+    payments = []
+    async for doc in cursor:
+        payments.append(PaymentResponse(**doc))
+    return payments
 
 @router.get("/{payment_id}", response_model=PaymentResponse)
-def get_payment(
-    payment_id: int,
-    db: Session = Depends(get_db),
-):
-    payment = (
-        db.query(Payment)
-        .filter(Payment.PaymentID == payment_id)
-        .first()
-    )
-
+async def get_payment(payment_id: int, db=Depends(get_db)):
+    payment = await db["payments"].find_one({"PaymentID": payment_id})
     if not payment:
-        raise HTTPException(
-            status_code=404,
-            detail="Payment not found.",
-        )
-
-    return payment
-
-
+        raise HTTPException(status_code=404, detail="Payment not found.")
+    return PaymentResponse(**payment)
 
 @router.put("/{payment_id}", response_model=PaymentResponse)
-def update_payment(
+async def update_payment(
     payment_id: int,
     payment_update: PaymentUpdate,
-    db: Session = Depends(get_db),
+    db=Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    payment = (
-        db.query(Payment)
-        .filter(Payment.PaymentID == payment_id)
-        .first()
-    )
-
+    payment = await db["payments"].find_one({"PaymentID": payment_id})
     if not payment:
-        raise HTTPException(
-            status_code=404,
-            detail="Payment not found.",
-        )
-
-    invoice = (
-        db.query(Invoice)
-        .filter(Invoice.InvoiceID == payment.InvoiceID)
-        .first()
-    )
-
+        raise HTTPException(status_code=404, detail="Payment not found.")
+    # Ensure transaction reference uniqueness if changed
     update_data = payment_update.model_dump(exclude_unset=True)
-
-    if (
-        "TransactionReference" in update_data
-        and update_data["TransactionReference"] != payment.TransactionReference
-    ):
-        exists = (
-            db.query(Payment)
-            .filter(
-                Payment.TransactionReference ==
-                update_data["TransactionReference"],
-                Payment.PaymentID != payment.PaymentID,
-            )
-            .first()
-        )
-
+    if "TransactionReference" in update_data and update_data["TransactionReference"] != payment.get("TransactionReference"):
+        exists = await db["payments"].find_one({
+            "TransactionReference": update_data["TransactionReference"],
+            "PaymentID": {"$ne": payment_id},
+        })
         if exists:
-            raise HTTPException(
-                status_code=400,
-                detail="Transaction Reference already exists.",
-            )
-
-    for key, value in update_data.items():
-        setattr(payment, key, value)
-
-    db.flush()
-
-    update_invoice_payment_status(db, invoice)
-
-    db.commit()
-    db.refresh(payment)
-
-    return payment
-
+            raise HTTPException(status_code=400, detail="Transaction Reference already exists.")
+    await db["payments"].update_one({"PaymentID": payment_id}, {"$set": update_data})
+    # Refresh payment
+    updated = await db["payments"].find_one({"PaymentID": payment_id})
+    # Update related invoice status
+    invoice = await db["invoices"].find_one({"InvoiceID": updated["InvoiceID"]})
+    if invoice:
+        await update_invoice_payment_status(db, invoice["InvoiceID"], invoice.get("TotalAmount"))
+    return PaymentResponse(**updated)
 
 @router.delete("/{payment_id}")
-def delete_payment(
+async def delete_payment(
     payment_id: int,
-    db: Session = Depends(get_db),
+    db=Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    payment = (
-        db.query(Payment)
-        .filter(Payment.PaymentID == payment_id)
-        .first()
-    )
-
+    payment = await db["payments"].find_one({"PaymentID": payment_id})
     if not payment:
-        raise HTTPException(
-            status_code=404,
-            detail="Payment not found.",
-        )
-
-    invoice = (
-        db.query(Invoice)
-        .filter(Invoice.InvoiceID == payment.InvoiceID)
-        .first()
-    )
-
-    db.delete(payment)
-    db.flush()
-
-    update_invoice_payment_status(db, invoice)
-
-    db.commit()
-
-    return {
-        "message": "Payment deleted successfully"
-    }
+        raise HTTPException(status_code=404, detail="Payment not found.")
+    invoice_id = payment.get("InvoiceID")
+    await db["payments"].delete_one({"PaymentID": payment_id})
+    # Recalculate invoice status after deletion
+    invoice = await db["invoices"].find_one({"InvoiceID": invoice_id})
+    if invoice:
+        await update_invoice_payment_status(db, invoice["InvoiceID"], invoice.get("TotalAmount"))
+    return {"message": "Payment deleted successfully"}

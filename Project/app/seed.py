@@ -1,71 +1,50 @@
 """
-seed.py — Database initialization and default data seeding.
-
-Called once at application startup (from main.py) after tables are created.
-Safe to call on every restart: checks existence before inserting.
+Async seed implementation for MongoDB.
 """
-
 import logging
-from sqlalchemy.orm import Session
-from app.database import SessionLocal
-from app.models.user import User
+from app.mongo import get_database
 from app.security import hash_password
 
 logger = logging.getLogger(__name__)
 
+async def _ensure_admin(db):
+    """Create default admin user if it does not exist."""
+    existing = await db["users"].find_one({"Username": "himanshu"})
+    if existing:
+        logger.info("Seed: default admin already exists — skipping.")
+        return
+    admin = {
+        "FullName": "Himanshu Patil",
+        "Username": "himanshu",
+        "Password": hash_password("Admin@123"),
+        "Email": "himanshu.patil@sap-erp.example",
+        "Role": "Admin",
+        "Department": "Administration",
+        "Phone": None,
+        "Status": "Active",
+    }
+    result = await db["users"].insert_one(admin)
+    logger.info("Seed: default admin created with _id=%s", result.inserted_id)
 
-def seed_default_admin() -> None:
+async def _ensure_indexes(db):
+    """Create required unique indexes for fast look‑ups.
+
+    This function is idempotent – MongoDB will ignore existing indexes.
     """
-    Ensure the default administrator account exists in the database.
+    # Users: unique username and email
+    await db["users"].create_index("Username", unique=True)
+    await db["users"].create_index("Email", unique=True)
+    # Vendors: unique vendor code
+    await db["vendors"].create_index("VendorCode", unique=True)
+    # Materials: ensure MaterialID is indexed (optional uniqueness depending on source)
+    await db["materials"].create_index("MaterialID")
+    # Additional collections can have indexes added here as needed
 
-    Credentials:
-        Username : himanshu
-        Password : Admin@123  (stored as bcrypt hash — NEVER plaintext)
-        Role     : Admin
-        Status   : Active
-
-    This function is idempotent:
-    - If the user already exists, it does nothing (no password overwrite).
-    - If the user does not exist, it creates it with a hashed password.
+async def run_seed() -> None:
+    """Entry point called from FastAPI startup. Executes async seeding.
     """
-    db: Session = SessionLocal()
-    try:
-        existing = (
-            db.query(User)
-            .filter(User.Username == "himanshu")
-            .first()
-        )
-        if existing:
-            logger.info(
-                "Seed: default admin 'himanshu' already exists — skipping creation."
-            )
-            return
-
-        admin = User(
-            FullName="Himanshu Patil",
-            Username="himanshu",
-            Password=hash_password("Admin@123"),
-            Email="himanshu.patil@sap-erp.example",
-            Role="Admin",
-            Department="Administration",
-            Phone=None,
-            Status="Active",
-        )
-        db.add(admin)
-        db.commit()
-        logger.info(
-            "Seed: default admin 'himanshu' created successfully."
-        )
-    except Exception as exc:
-        db.rollback()
-        logger.error("Seed: failed to create default admin user: %s", exc)
-        raise
-    finally:
-        db.close()
-
-
-def run_seed() -> None:
-    """Entry point called from main.py startup."""
-    logger.info("Seed: running startup database seeding...")
-    seed_default_admin()
+    logger.info("Seed: starting async database seeding...")
+    async for db in get_database():
+        await _ensure_admin(db)
+        await _ensure_indexes(db)
     logger.info("Seed: completed.")

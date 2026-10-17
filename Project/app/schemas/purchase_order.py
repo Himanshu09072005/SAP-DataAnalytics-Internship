@@ -1,24 +1,24 @@
-from pydantic import BaseModel
+from app.schemas.base import MongoBaseModel
 from datetime import date
 from decimal import Decimal
 from typing import Optional
 
 
-class PurchaseOrderCreate(BaseModel):
+class PurchaseOrderCreate(MongoBaseModel):
     PRID: int
     ExpectedDeliveryDate: date
     PaymentTerms: Optional[str] = None
     Remarks: Optional[str] = None
 
 
-class PurchaseOrderUpdate(BaseModel):
+class PurchaseOrderUpdate(MongoBaseModel):
     ExpectedDeliveryDate: Optional[date] = None
     Status: Optional[str] = None
     PaymentTerms: Optional[str] = None
     Remarks: Optional[str] = None
 
 
-class PurchaseOrderResponse(BaseModel):
+class PurchaseOrderResponse(MongoBaseModel):
     POID: int
     PONumber: str
     PRID: int

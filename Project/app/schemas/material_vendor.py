@@ -1,10 +1,10 @@
-from pydantic import BaseModel
+from app.schemas.base import MongoBaseModel
 from datetime import date
 from decimal import Decimal
 from typing import Optional
 
 
-class MaterialVendorCreate(BaseModel):
+class MaterialVendorCreate(MongoBaseModel):
     MaterialID: int
     VendorID: int
     PurchasePrice: Decimal
@@ -16,7 +16,7 @@ class MaterialVendorCreate(BaseModel):
     Status: str = "Active"
 
 
-class MaterialVendorUpdate(BaseModel):
+class MaterialVendorUpdate(MongoBaseModel):
     PurchasePrice: Optional[Decimal] = None
     LeadTimeDays: Optional[int] = None
     MinimumOrderQty: Optional[int] = None
@@ -26,7 +26,7 @@ class MaterialVendorUpdate(BaseModel):
     Status: Optional[str] = None
 
 
-class MaterialVendorResponse(BaseModel):
+class MaterialVendorResponse(MongoBaseModel):
     MaterialVendorID: int
     MaterialID: int
     VendorID: int

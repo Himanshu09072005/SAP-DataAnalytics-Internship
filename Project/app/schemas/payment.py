@@ -2,10 +2,10 @@ from datetime import date
 from decimal import Decimal
 from typing import Optional
 
-from pydantic import BaseModel
+from app.schemas.base import MongoBaseModel
 
 
-class PaymentCreate(BaseModel):
+class PaymentCreate(MongoBaseModel):
     InvoiceID: int
     PaymentMethod: str
     AmountPaid: Decimal
@@ -13,7 +13,7 @@ class PaymentCreate(BaseModel):
     Remarks: Optional[str] = None
 
 
-class PaymentUpdate(BaseModel):
+class PaymentUpdate(MongoBaseModel):
     PaymentMethod: Optional[str] = None
     AmountPaid: Optional[Decimal] = None
     TransactionReference: Optional[str] = None
@@ -21,7 +21,7 @@ class PaymentUpdate(BaseModel):
     Remarks: Optional[str] = None
 
 
-class PaymentResponse(BaseModel):
+class PaymentResponse(MongoBaseModel):
     PaymentID: int
     PaymentNumber: str
     InvoiceID: int

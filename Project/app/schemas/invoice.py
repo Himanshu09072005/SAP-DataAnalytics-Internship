@@ -2,24 +2,24 @@ from datetime import date
 from decimal import Decimal
 from typing import Optional
 
-from pydantic import BaseModel
+from app.schemas.base import MongoBaseModel
 
 
-class InvoiceCreate(BaseModel):
+class InvoiceCreate(MongoBaseModel):
     GRID: int
     InvoiceAmount: Decimal
     GSTAmount: Decimal
     Remarks: Optional[str] = None
 
 
-class InvoiceUpdate(BaseModel):
+class InvoiceUpdate(MongoBaseModel):
     InvoiceAmount: Optional[Decimal] = None
     GSTAmount: Optional[Decimal] = None
     PaymentStatus: Optional[str] = None
     Remarks: Optional[str] = None
 
 
-class InvoiceResponse(BaseModel):
+class InvoiceResponse(MongoBaseModel):
     InvoiceID: int
     InvoiceNumber: str
     GRID: int

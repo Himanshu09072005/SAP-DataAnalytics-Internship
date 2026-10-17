@@ -2,10 +2,10 @@ from datetime import date
 from decimal import Decimal
 from typing import Optional
 
-from pydantic import BaseModel
+from app.schemas.base import MongoBaseModel
 
 
-class GoodsReceiptCreate(BaseModel):
+class GoodsReceiptCreate(MongoBaseModel):
     POID: int
     QuantityReceived: Decimal
     QualityStatus: str = "Accepted"
@@ -14,14 +14,14 @@ class GoodsReceiptCreate(BaseModel):
     Remarks: Optional[str] = None
 
 
-class GoodsReceiptUpdate(BaseModel):
+class GoodsReceiptUpdate(MongoBaseModel):
     QualityStatus: Optional[str] = None
     WarehouseLocation: Optional[str] = None
     Status: Optional[str] = None
     Remarks: Optional[str] = None
 
 
-class GoodsReceiptResponse(BaseModel):
+class GoodsReceiptResponse(MongoBaseModel):
     GRID: int
     GRNumber: str
     POID: int

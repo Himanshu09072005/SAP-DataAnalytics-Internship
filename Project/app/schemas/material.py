@@ -1,10 +1,10 @@
-from pydantic import BaseModel
+from app.schemas.base import MongoBaseModel
 from datetime import date
 from decimal import Decimal
 from typing import Optional
 
 
-class MaterialCreate(BaseModel):
+class MaterialCreate(MongoBaseModel):
     MaterialCode: str
     MaterialName: str
     Category: str
@@ -19,7 +19,7 @@ class MaterialCreate(BaseModel):
     CreatedDate: date
 
 
-class MaterialUpdate(BaseModel):
+class MaterialUpdate(MongoBaseModel):
     MaterialName: Optional[str] = None
     Category: Optional[str] = None
     MaterialType: Optional[str] = None
@@ -32,7 +32,7 @@ class MaterialUpdate(BaseModel):
     Status: Optional[str] = None
 
 
-class MaterialResponse(BaseModel):
+class MaterialResponse(MongoBaseModel):
     MaterialID: int
     MaterialCode: str
     MaterialName: str

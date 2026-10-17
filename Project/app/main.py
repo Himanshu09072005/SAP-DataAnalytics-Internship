@@ -1,9 +1,9 @@
 import logging
 from contextlib import asynccontextmanager
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+# Routers
 from app.routers.invoices import router as invoice_router
 from app.routers.payments import router as payment_router
 from app.routers.goods_receipts import router as goods_receipt_router
@@ -16,24 +16,19 @@ from app.routers.purchase_requisitions import (
     router as purchase_requisition_router,
 )
 
-from app.database import engine, Base
+# Async seed function
 from app.seed import run_seed
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application startup: create tables then seed default data."""
-    logger.info("Startup: creating database tables...")
-    Base.metadata.create_all(bind=engine)
-    logger.info("Startup: tables ready.")
-    run_seed()
+    """Application startup: run async database seeding."""
+    logger.info("Startup: running async database seeding...")
+    await run_seed()
     logger.info("Startup: complete.")
     yield
-    # (shutdown logic can go here if needed)
-
 
 app = FastAPI(
     title="SAP Procurement System",
@@ -41,8 +36,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Allow the deployed Render frontend and local dev.
-# Override ALLOWED_ORIGINS env var on Render if you add more domains.
+# CORS configuration (same as before)
 import os
 _raw_origins = os.getenv(
     "ALLOWED_ORIGINS",
@@ -58,6 +52,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Include routers
 app.include_router(auth_router)
 app.include_router(vendor_router)
 app.include_router(material_router)
@@ -67,7 +62,6 @@ app.include_router(goods_receipt_router)
 app.include_router(invoice_router)
 app.include_router(payment_router)
 app.include_router(dashboard_router)
-
 
 @app.get("/")
 def home():

@@ -1,10 +1,7 @@
+import os
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-
-from app.database import get_db
-from app.models.purchase_order import PurchaseOrder
-from app.models.purchase_requisition import PurchaseRequisition
+from app.dependencies import get_db
 from app.schemas.purchase_order import (
     PurchaseOrderCreate,
     PurchaseOrderUpdate,
@@ -17,215 +14,100 @@ router = APIRouter(
     tags=["Purchase Orders"],
 )
 
+async def generate_po_number(db) -> str:
+    """Generate a new PO number based on the highest existing POID.
 
-def generate_po_number(db: Session):
-    last_po = (
-        db.query(PurchaseOrder)
-        .order_by(PurchaseOrder.POID.desc())
-        .first()
-    )
-
-    if last_po:
-        last_number = int(last_po.PONumber.replace("PO", ""))
+    The POID field is stored as an integer in each document. We find the max
+    POID and increment the numeric part of the PONumber accordingly.
+    """
+    last_po = await db["purchase_orders"].find_one(sort=[("POID", -1)])
+    if last_po and "PONumber" in last_po:
+        last_number = int(last_po["PONumber"].replace("PO", ""))
         return f"PO{last_number + 1:04d}"
-
     return "PO0001"
 
-
 @router.post("/", response_model=PurchaseOrderResponse)
-def create_purchase_order(
+async def create_purchase_order(
     purchase_order: PurchaseOrderCreate,
-    db: Session = Depends(get_db),
+    db=Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    pr = (
-        db.query(PurchaseRequisition)
-        .filter(
-            PurchaseRequisition.PRID == purchase_order.PRID
-        )
-        .first()
-    )
-
+    # Verify related Purchase Requisition exists and is approved
+    pr = await db["purchase_requisitions"].find_one({"PRID": purchase_order.PRID})
     if not pr:
-        raise HTTPException(
-            status_code=404,
-            detail="Purchase Requisition not found",
-        )
-
-    if pr.Status != "Approved":
-        raise HTTPException(
-            status_code=400,
-            detail="Only Approved Purchase Requisitions can be converted into Purchase Orders",
-        )
-
-    existing_po = (
-        db.query(PurchaseOrder)
-        .filter(PurchaseOrder.PRID == purchase_order.PRID)
-        .first()
-    )
-
+        raise HTTPException(status_code=404, detail="Purchase Requisition not found")
+    if pr.get("Status") != "Approved":
+        raise HTTPException(status_code=400, detail="Only Approved Purchase Requisitions can be converted into Purchase Orders")
+    # Ensure no existing PO for this PRID
+    existing_po = await db["purchase_orders"].find_one({"PRID": purchase_order.PRID})
     if existing_po:
-        raise HTTPException(
-            status_code=400,
-            detail="Purchase Order already exists for this Purchase Requisition",
-        )
+        raise HTTPException(status_code=400, detail="Purchase Order already exists for this Purchase Requisition")
 
-    po = PurchaseOrder(
-        PONumber=generate_po_number(db),
-        PRID=pr.PRID,
-        VendorID=pr.VendorID,
-        UserID=pr.UserID,
-        OrderDate=date.today(),
-        ExpectedDeliveryDate=purchase_order.ExpectedDeliveryDate,
-        TotalAmount=pr.TotalAmount,
-        Status="Open",
-        PaymentTerms=purchase_order.PaymentTerms,
-        Remarks=purchase_order.Remarks,
-    )
-
-    db.add(po)
-
-    pr.Status = "Ordered"
-
-    db.commit()
-    db.refresh(po)
-
-    return po
-
+    po_number = await generate_po_number(db)
+    po_doc = {
+        "PONumber": po_number,
+        "PRID": pr["PRID"],
+        "VendorID": pr["VendorID"],
+        "UserID": pr["UserID"],
+        "OrderDate": date.today().isoformat(),
+        "ExpectedDeliveryDate": purchase_order.ExpectedDeliveryDate,
+        "TotalAmount": pr.get("TotalAmount"),
+        "Status": "Open",
+        "PaymentTerms": purchase_order.PaymentTerms,
+        "Remarks": purchase_order.Remarks,
+    }
+    result = await db["purchase_orders"].insert_one(po_doc)
+    po_doc["POID"] = result.inserted_id
+    await db["purchase_requisitions"].update_one({"PRID": purchase_order.PRID}, {"$set": {"Status": "Ordered"}})
+    return po_doc
 
 @router.get("/", response_model=list[PurchaseOrderResponse])
-def get_purchase_orders(
-    db: Session = Depends(get_db),
-):
-    return db.query(PurchaseOrder).all()
-
+async def get_purchase_orders(db=Depends(get_db)):
+    cursor = db["purchase_orders"].find()
+    return await cursor.to_list(length=None)
 
 @router.get("/{po_id}", response_model=PurchaseOrderResponse)
-def get_purchase_order(
-    po_id: int,
-    db: Session = Depends(get_db),
-):
-    po = (
-        db.query(PurchaseOrder)
-        .filter(PurchaseOrder.POID == po_id)
-        .first()
-    )
-
+async def get_purchase_order(po_id: int, db=Depends(get_db)):
+    po = await db["purchase_orders"].find_one({"POID": po_id})
     if not po:
-        raise HTTPException(
-            status_code=404,
-            detail="Purchase Order not found",
-        )
-
+        raise HTTPException(status_code=404, detail="Purchase Order not found")
     return po
-
-
 
 @router.put("/{po_id}", response_model=PurchaseOrderResponse)
-def update_purchase_order(
+async def update_purchase_order(
     po_id: int,
     purchase_order: PurchaseOrderUpdate,
-    db: Session = Depends(get_db),
+    db=Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    po = (
-        db.query(PurchaseOrder)
-        .filter(PurchaseOrder.POID == po_id)
-        .first()
-    )
-
+    po = await db["purchase_orders"].find_one({"POID": po_id})
     if not po:
-        raise HTTPException(
-            status_code=404,
-            detail="Purchase Order not found",
-        )
-
+        raise HTTPException(status_code=404, detail="Purchase Order not found")
     update_data = purchase_order.model_dump(exclude_unset=True)
-
-    for key, value in update_data.items():
-        setattr(po, key, value)
-
-    db.commit()
-    db.refresh(po)
-
-    return po
-
+    await db["purchase_orders"].update_one({"POID": po_id}, {"$set": update_data})
+    updated_po = await db["purchase_orders"].find_one({"POID": po_id})
+    return updated_po
 
 @router.put("/{po_id}/complete")
-def complete_purchase_order(
-    po_id: int,
-    db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
-):
-    po = (
-        db.query(PurchaseOrder)
-        .filter(PurchaseOrder.POID == po_id)
-        .first()
-    )
-
+async def complete_purchase_order(po_id: int, db=Depends(get_db), current_user=Depends(get_current_user)):
+    po = await db["purchase_orders"].find_one({"POID": po_id})
     if not po:
-        raise HTTPException(
-            status_code=404,
-            detail="Purchase Order not found",
-        )
-
-    po.Status = "Completed"
-
-    db.commit()
-
-    return {
-        "message": "Purchase Order marked as Completed"
-    }
-
+        raise HTTPException(status_code=404, detail="Purchase Order not found")
+    await db["purchase_orders"].update_one({"POID": po_id}, {"$set": {"Status": "Completed"}})
+    return {"message": "Purchase Order marked as Completed"}
 
 @router.put("/{po_id}/cancel")
-def cancel_purchase_order(
-    po_id: int,
-    db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
-):
-    po = (
-        db.query(PurchaseOrder)
-        .filter(PurchaseOrder.POID == po_id)
-        .first()
-    )
-
+async def cancel_purchase_order(po_id: int, db=Depends(get_db), current_user=Depends(get_current_user)):
+    po = await db["purchase_orders"].find_one({"POID": po_id})
     if not po:
-        raise HTTPException(
-            status_code=404,
-            detail="Purchase Order not found",
-        )
-
-    po.Status = "Cancelled"
-
-    db.commit()
-
-    return {
-        "message": "Purchase Order cancelled"
-    }
-
+        raise HTTPException(status_code=404, detail="Purchase Order not found")
+    await db["purchase_orders"].update_one({"POID": po_id}, {"$set": {"Status": "Cancelled"}})
+    return {"message": "Purchase Order cancelled"}
 
 @router.delete("/{po_id}")
-def delete_purchase_order(
-    po_id: int,
-    db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
-):
-    po = (
-        db.query(PurchaseOrder)
-        .filter(PurchaseOrder.POID == po_id)
-        .first()
-    )
-
+async def delete_purchase_order(po_id: int, db=Depends(get_db), current_user=Depends(get_current_user)):
+    po = await db["purchase_orders"].find_one({"POID": po_id})
     if not po:
-        raise HTTPException(
-            status_code=404,
-            detail="Purchase Order not found",
-        )
-
-    db.delete(po)
-    db.commit()
-
-    return {
-        "message": "Purchase Order deleted successfully"
-    }
+        raise HTTPException(status_code=404, detail="Purchase Order not found")
+    await db["purchase_orders"].delete_one({"POID": po_id})
+    return {"message": "Purchase Order deleted successfully"}
